@@ -1,54 +1,43 @@
-# Lab 4 — Active Reconnaissance (Footprinting)
+# Lab 4: Active Reconnaissance (Footprinting)
 
-**Name:** <Your Full Name>
-**Class:** <Your Class / Section, e.g. B01>
-**Course:** IKB21403 Vulnerability Analysis — Chapter 3: Reconnaissance & Footprinting
-**Date:** 16/11/2026
+- **Name:** MUHAMMAD IRFAN IZZATY BIN MANSOR
+- **Student ID:** 52215226193
+- **Group:** L01-B03
+
+
 
 ---
 
 ## Scope
 
-Only my own vulnerable machine (**Bluemoon**, from VulnHub) was scanned, on a
-private **Host-Only** network inside VirtualBox. Both the attacker and the target
-run on the same isolated Host-Only segment — no public systems were touched.
-Activity was limited to **active reconnaissance** — host discovery and
-port/service scanning only. **No exploitation, brute-force, persistence, or
-destructive testing** was performed.
+For this lab I only scanned my own vulnerable machine, Bluemoon from VulnHub. Both my attacker and the target run inside VirtualBox on the same private Host-Only network, so no public systems were ever touched. I kept everything to active reconnaissance, which means host discovery together with port and service scanning. I did not do any exploitation, brute forcing, persistence or destructive testing.
 
 ---
 
-## 1. Target Setup (Victim) & Attacker
+## 1. Target Setup (Victim) and Attacker
 
-Both VMs are attached to the **VirtualBox Host-Only Adapter**, which keeps all
-traffic on a private, isolated segment (`192.168.56.0/24`).
+Both machines use the VirtualBox Host-Only Adapter, which keeps all of their traffic on one private, isolated segment (`192.168.56.0/24`).
 
 | Role | VM | Adapter | MAC | IP |
 |------|-----|---------|-----|-----|
 | Attacker | Kali Linux | Host-Only | `08:00:27:41:62:FE` | `192.168.56.102` |
 | Target | Bluemoon (VulnHub) | Host-Only | `08:00:27:6A:07:91` | `192.168.56.101` |
 
-![Lab setup — attacker and target on Host-Only](01-lab-setup.png)
+![Lab setup, attacker and target on Host-Only](01-lab-setup.png)
 
-**Target confirmation:** I did not guess which host was Bluemoon. The target VM's
-adapter MAC in its VirtualBox settings is `08:00:27:6A:07:91`, and this is the
-exact MAC that Nmap reported for `192.168.56.101` in both the host-discovery and
-service scans below. The MAC match confirms `192.168.56.101` is Bluemoon.
+**Target confirmation:** I did not simply assume which host was Bluemoon. In its VirtualBox settings the target's adapter MAC is `08:00:27:6A:07:91`, and that is the same MAC Nmap reported for `192.168.56.101` in both scans below. Because the two match, I am confident that `192.168.56.101` really is Bluemoon.
 
 ---
 
-## 2. Own Host (Attacker) & Host Discovery
+## 2. Own Host (Attacker) and Host Discovery
 
-- **Attacker IP / prefix:** `192.168.56.102/24`
-- **Gateway:** none — Host-Only segment (only a kernel link-scope route exists, no default route), confirming an isolated network.
+My Kali attacker sits at `192.168.56.102/24`. There is no default route in its routing table, only the kernel link-scope route for the local subnet, which confirms the network is isolated with no gateway out.
 
-![Attacker ip addr / ip route](02-ip-addr.png)
+![Attacker ip addr and ip route](02-ip-addr.png)
 
-Host discovery with a ping sweep found 4 live hosts on the segment:
-`.1` (Host-Only adapter), `.100` (VirtualBox DHCP), `.101` (Bluemoon — target),
-`.102` (Kali — me).
+A ping sweep of the subnet found four live hosts. These were `.1` (the Host-Only adapter), `.100` (the VirtualBox DHCP server), `.101` (Bluemoon, my target) and `.102` (my own Kali machine).
 
-![Host discovery — nmap ping sweep](03-nmap-sn.png)
+![Host discovery with nmap ping sweep](03-nmap-sn.png)
 
 ---
 
@@ -56,7 +45,7 @@ Host discovery with a ping sweep found 4 live hosts on the segment:
 
 ### Findings
 
-Service/version scan of `192.168.56.101`:
+Service and version scan of `192.168.56.101`:
 
 | Port | State | Service | Version (from banner) |
 |------|-------|---------|-----------------------|
@@ -64,36 +53,28 @@ Service/version scan of `192.168.56.101`:
 | 22/tcp | open | ssh | OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0) |
 | 80/tcp | open | http | Apache httpd 2.4.38 ((Debian)) |
 
-997 other TCP ports returned **closed (reset)** — the host actively refuses them
-rather than silently dropping, indicating no packet-filtering firewall in front
-of these services.
+The other 997 ports came back as closed with a reset, which means the host actively refuses them instead of quietly dropping the packets. That tells me there is no packet-filtering firewall sitting in front of these services.
 
-Summary: The target is a **Debian 10 ("Buster")** Linux host exposing FTP, SSH,
-and a web server. All three version banners are the stock Debian 10 packages.
+Overall, the target looks like a Debian 10 (Buster) Linux host running an FTP server, SSH and a web server, and all three version banners line up with the stock Debian 10 packages.
 
 ### Evidence
 
-![Service/version scan — nmap -sV](04-nmap-sV.png)
+![Service and version scan with nmap -sV](04-nmap-sV.png)
 
-All results are taken directly from my own scan output.
-Source: Nmap 7.99, run from Kali (`192.168.56.102`). Timestamp: 2026-11-16 01:11 +0800.
+Everything above comes straight from my own scan output, produced by Nmap 7.99 running on my Kali host (`192.168.56.102`).
 
-### Interpretation & Confidence
+### Interpretation and Confidence
 
-- Ports 21, 22, 80 are **open** and the banners identify vsftpd 3.0.3, OpenSSH
-  7.9p1, and Apache 2.4.38 — all consistent with a Debian 10 host.
-- Confidence: **medium** — versions are self-reported service banners, not
-  independently validated.
-- No service is labelled "vulnerable": Debian backports security fixes while
-  keeping the version number, so an old-looking banner is **not** proof of a flaw.
-  (Note: vsftpd 3.0.3 is a normal release, not the backdoored 2.3.4.)
+Ports 21, 22 and 80 are open, and their banners point to vsftpd 3.0.3, OpenSSH 7.9p1 and Apache 2.4.38, which all fit a Debian 10 host. My confidence here is medium, because these versions are what the services report about themselves and I have not independently verified them.
+
+I am deliberately not calling any of these services vulnerable. Debian tends to backport security fixes while keeping the old version number, so a banner that looks outdated is not on its own proof that something can be exploited. It is also worth noting that vsftpd 3.0.3 is a normal release and not the backdoored 2.3.4 version that people often worry about.
 
 ### Limitations
 
-- **Banners can be faked or misleading** — a reported version is an indicator, not proof.
-- **Outdated-looking software is not confirmed vulnerable** — no validation or exploitation was performed.
-- **Scan scope** — only the **top 1000 TCP ports** were scanned (`-sV` default); no full `-p-` range and no UDP, so other open ports may exist (false negatives possible).
-- **Point-in-time** — results reflect the state at scan time only.
+- Service banners can be changed or faked, so a reported version is only an indicator and not solid proof.
+- A version that looks outdated is not the same as a confirmed vulnerability, and I did not validate or exploit anything.
+- I only scanned the top 1000 TCP ports that `nmap -sV` checks by default. I did not run a full port scan or any UDP scan, so there could be other open ports I did not see.
+- The results only describe the target at the moment I scanned it.
 
 ---
 
@@ -107,6 +88,6 @@ ip route
 # Host discovery on the Host-Only segment
 sudo nmap -sn 192.168.56.0/24
 
-# Service / version scan of the target
+# Service and version scan of the target
 sudo nmap -sV 192.168.56.101
 ```
